@@ -1,54 +1,11 @@
-# Standalone extension: the JOB SYSTEM — a frame-scoped composition on the
-# thread pool (the standalone), which is a composition on the threading
-# primitive (the concern). This is the "give me the frame's job system" layer
-# the application links against: it owns the pool for the life of the app,
-# serves the small JobsAPI (Push / WaitAll / WorkerCount / LastBatchNS), and
-# calls the pool's barrier once per frame as a safety net (a batch pushed but
-# not waited on is drained before the next frame's apps tick — the engine
-# walks the extensions, THEN ticks the apps).
-#
-# It is a STANDALONE (kind = "standalone"), not a concern: the job system's
-# LOGIC (the frame-scoped pool, the safety-net barrier, the batch accounting)
-# is platform-agnostic — it builds on the platform-agnostic pool, which builds
-# on the platform-varying primitive. A single source serves every platform.
-#
-# THE MODE (threaded vs serial) is NOT a runtime switch in this package: this
-# package always creates the pool (ThreadPool_Create(0), auto), and the pool
-# resolves the mode off the primitive's concurrency FACT (the ceiling: the
-# hardware's physical cores on native, the pre-run Web Worker pool size on an
-# isolated web page, 0 for a threading_none composition or a non-isolated
-# page). The composition is the mode; this package has no serial branch — the
-# pool's proven serial mode (the named degrade) is the one. A
-# ThreadPool_Create failure is FATAL, named (no silent serial fallback): a
-# cell that composed the job system and cannot honor it does not boot.
-#
-# WHO MAY CALL (the shared-service contract, jobs_api.h): the job system is a
-# shared service, not an app-private one. The application is the primary
-# driver, but any extension may push jobs + wait from within its own
-# MAIN-THREAD calls (a software renderer pushing its draw jobs inside its
-# Draw call) — it declares the dependency by `requires`-ing this package in
-# its manifest (the include root + the link edge + the composition check ride
-# the requires line). A job NEVER calls the job system (a worker-side WaitAll
-# is a deadlock hazard; a job that spawns jobs is a task graph wearing a
-# trench coat).
-#
-# THE ALLOCATOR SEAM: the job system passes the caller's job-node allocator
-# (the pool's TPAllocator) through to the pool — SetAllocator, called before
-# the first batch (the app's Construct; the pool captures it at create). A
-# program may not use the arena at all (it is an optional concern): with no
-# allocator set, the pool uses the memory concern directly — the general
-# case. The served JobsAPI is append-only (an older consumer's table copy
-# keeps working: new members are appended, never reordered).
-#
-format_version = 1
+format_version = 2
 name   = "jobs"
 kind   = "standalone"
-version        = "1.0.0"
+version = "2.0.0"
+renderings = ["static", "dynamic"]
 requires = [
   { package = "thread_pool", window = "2.0.0" },
-  { package = "logging",     window = "1.1.0" },
-  { package = "time",        window = "1.1.0" },
+  { package = "logging", window = "1.1.0" },
+  { package = "time", window = "1.1.0" },
 ]
-# The contract renderings this package ships (the dialect-table membership
-# fact; the cradle is the cross-check, a drift is a named refusal).
-renderings = ["static", "dynamic"]
+source   = "src/"
